@@ -4,14 +4,14 @@ defmodule StatesLanguage.Mixfile do
   def project do
     [
       app: :states_language,
-      version: "0.2.4",
+      version: "0.2.10",
       elixir: "~> 1.5",
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       description: description(),
       package: package(),
       name: "StatesLanguage",
-      source_url: "https://github.com/citybaseinc/states_language",
+      source_url: "https://github.com/entropealabs/states_language",
       elixirc_paths: elixirc_paths(Mix.env()),
       test_coverage: [tool: ExCoveralls],
       dialyzer: [plt_add_apps: [:mix]],
@@ -59,7 +59,7 @@ defmodule StatesLanguage.Mixfile do
     [
       files: ~w(lib priv mix.exs README*),
       licenses: ["MIT"],
-      links: %{"Github" => "https://github.com/citybaseinc/states_language"}
+      links: %{"Github" => "https://github.com/entropealabs/states_language"}
     ]
   end
 end

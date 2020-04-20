@@ -12,32 +12,77 @@ defmodule StatesLanguage.Base do
       def child_spec(opts) do
         %{
           id: __MODULE__,
-          start: {__MODULE__, :start_link, opts}
+          start: {__MODULE__, :start_link, opts},
+          restart: :transient
         }
       end
+
+      defoverridable(child_spec: 1)
 
       @impl true
       def callback_mode, do: [:handle_event_function, :state_enter]
 
+      def start_link(name, data, opts) do
+        {start, opts} = Keyword.pop(opts, :start)
+
+        :gen_statem.start_link(
+          name,
+          __MODULE__,
+          {data, start},
+          opts
+        )
+      end
+
+      def start_link(data, opts) do
+        {start, opts} = Keyword.pop(opts, :start)
+
+        :gen_statem.start_link(
+          __MODULE__,
+          {data, start},
+          opts
+        )
+      end
+
       def start_link(data) do
         :gen_statem.start_link(
           __MODULE__,
-          data,
+          {data, nil},
           []
+        )
+      end
+
+      def start(name, data, opts) do
+        {start, opts} = Keyword.pop(opts, :start)
+
+        :gen_statem.start(
+          name,
+          __MODULE__,
+          {data, start},
+          opts
+        )
+      end
+
+      def start(data, opts) do
+        {start, opts} = Keyword.pop(opts, :start)
+
+        :gen_statem.start(
+          __MODULE__,
+          {data, start},
+          opts
         )
       end
 
       def start(data) do
         :gen_statem.start(
           __MODULE__,
-          data,
+          {data, nil},
           []
         )
       end
 
       @impl true
-      def init({parent, data}) do
-        debug("Nested Init: Parent - #{inspect(parent)} Data - #{inspect(data)}")
+      def init({{parent, data}, override_start}) do
+        Logger.debug("Nested Init: Parent - #{inspect(parent)} Data - #{inspect(data)}")
 
         {parent_data, child_data} =
           case data do
@@ -45,14 +90,20 @@ defmodule StatesLanguage.Base do
             _ -> {data, %{}}
           end
 
-        do_init(unquote(start), parent, parent_data, child_data)
+        start = get_start_state(unquote(start), override_start)
+        do_init(start, parent, parent_data, child_data)
       end
 
       @impl true
-      def init(data) do
-        debug("Init: Data - #{inspect(data)}")
-        do_init(unquote(start), nil, nil, data)
+      def init({data, override_start}) do
+        Logger.debug("Init: Data - #{inspect(data)}")
+        start = get_start_state(unquote(start), override_start)
+        do_init(start, nil, nil, data)
       end
+
+      def get_start_state(start, nil), do: start
+
+      def get_start_state(_start, override), do: override
 
       def do_init(start, parent, parent_data, data) do
         actions = [{:next_event, :internal, :handle_resource}]
@@ -68,7 +119,7 @@ defmodule StatesLanguage.Base do
 
       @impl true
       def terminate(reason, state, data) do
-        debug("Terminating in state #{state} #{inspect(reason)}")
+        Logger.debug("Terminating in state #{state} #{inspect(reason)}")
 
         :telemetry.execute([:states_language, :terminating], %{}, %{
           source: state,

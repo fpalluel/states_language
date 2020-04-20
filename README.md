@@ -99,6 +99,10 @@ We can see each state from our diagram represented, and a few mentions of "Trans
 
 You may notice that a few of our states are without the `TransitionEvent` field. The library will provide a default transition event of `:transition`. We'll see more about that when we go over the Elixir code that implements our machine. It's worth noting that `TransitionEvent` isn't in the [States Language spec](https://states-language.net/spec.html), but I've found it quite a powerful addition. For example, this allows external processes to send events to the state machine, without us having to write listener/translation code for every possible event. We just say, when you receive this event, transition to the next state.
 
+**Note** 
+
+The mix of JSON decoding and `Code.eval_string` makes it a bit tricky to use just a plain string as an event, however it is possible. In your JSON file, you can use a sigil and escaped string like so `"TransitionEvent": "\"~s(my_event)\""`.
+
 ### Resource
 
 The `Resource` field is where we tell the state machine what "function" to call when we enter that state, the "Resource" is also what's responsible for telling the state machine to transition, returning `{:next_event, :internal, :transition}` or whatever we've declared our transition event to be, or not, transition events can come from anywhere. Since under the hood we are using `:gen_statem` we can return whatever actions are supported by it, timeouts, postpone, hibernate etc. The [:gen_statem docs](http://erlang.org/doc/man/gen_statem.html#type-action) for actions can be very helpful.
@@ -149,7 +153,6 @@ Now let's create our module implementation, name it `vending_machine.ex`.
 
 ```elixir
 defmodule VendingMachine do
-  @external_resource "test/support/vending_machine.json"
   use StatesLanguage, data: "test/support/vending_machine.json"
 
   defmodule Data do
@@ -304,6 +307,33 @@ Generated states_language app
 14:41:21.863 [info]  Dispensing one "Snickers"
 
 14:41:21.863 [debug] Elixir.VendingMachine - Terminating in state DispenseNosh :normal
+```
+
+## Persisting process state
+
+It's also possible to override the "Start" state and perhaps pass in a deserialized data object. This would allow you to persist the StatesLanguage process to storage and restart the process where you left off.
+
+For the vending machine example you could pass in your data and a `start` parameter to `start_link` or `start`
+
+```bash
+$ iex -S mix
+iex(1)> data = %Data{test: self(), keypad: %{input: "a123"}, lookup: %{result: %{candy: "Snickers"}}}
+iex(2)> VendingMachine.start_link(data, start: "DispenseNosh")
+iex(3)> flush()
+:finished
+:ok
+```
+
+And your output would look something like this
+
+```
+09:19:04.239 [debug] Elixir.VendingMachine - Init: Data - %VendingMachine.Data{error: "", keypad: %{input: "a123"}, lookup: %{result: %{candy: "Snickers"}}, test: #PID<0.346.0>}
+
+09:19:04.239 [warn]  Unknown enter event from "DispenseNosh" to "DispenseNosh"
+
+09:19:04.239 [info]  Dispensing one "Snickers"
+
+09:19:04.239 [debug] Elixir.VendingMachine - Terminating in state DispenseNosh :normal
 ```
 
 ## Validation

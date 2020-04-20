@@ -22,25 +22,26 @@ defmodule StatesLanguage.AST.Await do
             unquote(state_name) = state,
             %StatesLanguage{_tasks: tasks, data: data} = sl
           ) do
-        debug("Checking tasks: #{inspect(tasks)}")
+        Logger.debug("Checking tasks: #{inspect(tasks)}")
 
         if Enum.all?(tasks, fn
              {pid, res} -> true
              _ -> false
            end) do
           res = Enum.map(tasks, fn {_p, res} -> res end)
+          Logger.debug("All tasks complete: #{inspect(res)}")
           data = put_result(res, unquote(resource_path), unquote(output_path), data)
 
           case AST.do_stop?(unquote(is_end)) do
             true ->
-              :stop
+              {:stop, :normal, %StatesLanguage{sl | data: data}}
 
             false ->
               {:keep_state, %StatesLanguage{sl | data: data, _tasks: []},
                [{:next_event, :internal, unquote(event)}]}
           end
         else
-          debug("Waiting for more parallel results")
+          Logger.debug("Waiting for more parallel results")
           {:keep_state, sl}
         end
       end
@@ -52,7 +53,7 @@ defmodule StatesLanguage.AST.Await do
             unquote(state_name),
             %StatesLanguage{_tasks: tasks} = sl
           ) do
-        debug("Got Result: #{inspect(pid)} #{inspect(tasks)}")
+        Logger.debug("Got Result: #{inspect(pid)} #{inspect(tasks)}")
 
         tasks =
           Enum.map(tasks, fn
